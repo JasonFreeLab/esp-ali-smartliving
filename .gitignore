@@ -8,7 +8,7 @@ examples/*/build/*
 examples/*/*/build/*
 
 # config
-sdkconfig
+# sdkconfig
 sdkconfig.old
 
 # VS Code Settings
