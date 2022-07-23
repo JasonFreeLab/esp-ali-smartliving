@@ -13,3 +13,6 @@ sdkconfig.old
 
 # VS Code Settings
 .vscode/
+
+# config/mass_mfg
+*.csv
