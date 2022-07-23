@@ -160,7 +160,9 @@ uintptr_t HAL_SSL_Establish(const char *host, uint16_t port, const char *ca_crt,
     rtc_clk_cpu_freq_set(RTC_CPU_FREQ_160M);
 #endif
 #endif
-    struct esp_tls *tls = esp_tls_conn_new(host, strlen(host), port, &cfg);
+    // struct esp_tls *tls = esp_tls_conn_new(host, strlen(host), port, &cfg);
+    struct esp_tls *tls = NULL;
+    esp_tls_conn_new_sync(host, strlen(host), port, &cfg, tls);
 
 #ifdef CONFIG_IDF_TARGET_ESP8266
 #if ESP_IDF_VERSION >= 0x30300

@@ -78,7 +78,7 @@ uint32_t duties[PWM_IO_NUM] = {
 };
 
 // phase table, (phase/180)*depth
-int16_t phase[PWM_IO_NUM] = {
+float phase[PWM_IO_NUM] = {
     0, 0, 50,
 };
 

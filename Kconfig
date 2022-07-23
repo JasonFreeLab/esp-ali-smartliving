@@ -1,4 +1,4 @@
-menu "iotkit embedded"
+menu "Aliyun iotkit embedded"
 
     menu "Aliyun linkkit device version"
 
