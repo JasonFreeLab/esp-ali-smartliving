@@ -161,18 +161,18 @@ int HAL_Wifi_Scan(awss_wifi_scan_result_cb_t cb)
     esp_err_t ret = ESP_OK;
     uint16_t wifi_ap_num = 0;
     wifi_ap_record_t *ap_info = NULL;
-    // wifi_scan_config_t scan_config = {
-    //         .show_hidden = 0,
-    //         .scan_type = 0,
-    //         .scan_time = {
-    //              .passive = 0,
-    //              .active = {
-    //                   .min = 100,
-    //                   .max = 200
-    //              }
-    //         }
-    // };
-    wifi_scan_config_t scan_config = {0};
+    wifi_scan_config_t scan_config = {
+            .show_hidden = 0,
+            .scan_type = 0,
+            .scan_time = {
+                 .passive = 0,
+                 .active = {
+                      .min = 100,
+                      .max = 200
+                 }
+            }
+    };
+    // wifi_scan_config_t scan_config = {0};
 
     ret = esp_wifi_scan_start(&scan_config, true);
     ret |= esp_wifi_scan_get_ap_num(&wifi_ap_num);
