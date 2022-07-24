@@ -244,7 +244,7 @@ static int user_property_get_event_handler(const int devid, const char *request,
         } else if (strcmp("Brightness", item_propertyid->valuestring) == 0) {
             cJSON_AddNumberToObject(response_root, "Brightness", 30);
         } else if (strcmp("LightSwitch", item_propertyid->valuestring) == 0) {
-            cJSON_AddNumberToObject(response_root, "LightSwitch", 1);
+            cJSON_AddNumberToObject(response_root, "powerstate", 1);
         } else if (strcmp("ColorTemperature", item_propertyid->valuestring) == 0) {
             cJSON_AddNumberToObject(response_root, "ColorTemperature", 2800);
         } else if (strcmp("PropertyCharacter", item_propertyid->valuestring) == 0) {

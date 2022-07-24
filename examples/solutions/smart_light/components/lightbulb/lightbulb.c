@@ -38,24 +38,24 @@ typedef struct rgb {
 } rgb_t;
 
 
-typedef struct hsp {
-    uint16_t h;  // 0-360
-    uint16_t s;  // 0-100
-    uint16_t b;  // 0-100
-} hsp_t;
+typedef struct hsb {
+    uint16_t h;  // hue, 0-360
+    uint16_t s;  // saturation, 0-100
+    uint16_t b;  // brightness, 0-100
+} hsb_t;
 
 /* LED numbers below are for ESP-WROVER-KIT */
 /* Red LED */
-#define LEDC_IO_0 (5)
+#define LEDC_IO_0 (2)
 /* Green LED */
-#define LEDC_IO_1 (2)
+#define LEDC_IO_1 (5)
 /* Blued LED */
 #define LEDC_IO_2 (16)
 
 #define PWM_DEPTH (1023)
 #define PWM_TARGET_DUTY 8192
 
-static hsp_t s_hsb_val;
+static hsb_t s_hsb_val;
 static uint16_t s_brightness;
 static bool s_on = false;
 
@@ -179,8 +179,12 @@ static bool lightbulb_set_aim_hsv(uint16_t h, uint16_t s, uint16_t v)
     if (ret == false)
         return false;
 
-    lightbulb_set_aim(rgb_tmp.r * PWM_TARGET_DUTY / 100, rgb_tmp.g * PWM_TARGET_DUTY / 100,
-            rgb_tmp.b * PWM_TARGET_DUTY / 100, (100 - s) * 5000 / 100, v * 2000 / 100, 1000);
+    lightbulb_set_aim(rgb_tmp.r * PWM_TARGET_DUTY / 100, 
+                      rgb_tmp.g * PWM_TARGET_DUTY / 100, 
+                      rgb_tmp.b * PWM_TARGET_DUTY / 100, 
+                      (100 - s) * 5000 / 100, 
+                      v * 2000 / 100, 
+                      1000);
 
     return true;
 }
