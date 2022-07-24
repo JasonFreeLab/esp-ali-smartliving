@@ -15,4 +15,4 @@ sdkconfig.old
 .vscode/
 
 # config/mass_mfg
-*.csv
+config/mass_mfg/*
