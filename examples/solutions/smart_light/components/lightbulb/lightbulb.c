@@ -131,39 +131,40 @@ static bool lightbulb_set_hsb2rgb(uint16_t h, uint16_t s, uint16_t v, rgb_t *rgb
     T = v * (10000 - s * (100 - F)) / 10000;
 
     switch (hi) {
-    case 0:
-        rgb->r = v;
-        rgb->g = T;
-        rgb->b = P;
-        break;
-    case 1:
-        rgb->r = Q;
-        rgb->g = v;
-        rgb->b = P;
-        break;
-    case 2:
-        rgb->r = P;
-        rgb->g = v;
-        rgb->b = T;
-        break;
-    case 3:
-        rgb->r = P;
-        rgb->g = Q;
-        rgb->b = v;
-        break;
-    case 4:
-        rgb->r = T;
-        rgb->g = P;
-        rgb->b = v;
-        break;
-    case 5:
-        rgb->r = v;
-        rgb->g = P;
-        rgb->b = Q;
-        break;
-    default:
-        return false;
+        case 0:
+            rgb->r = v;
+            rgb->g = T;
+            rgb->b = P;
+            break;
+        case 1:
+            rgb->r = Q;
+            rgb->g = v;
+            rgb->b = P;
+            break;
+        case 2:
+            rgb->r = P;
+            rgb->g = v;
+            rgb->b = T;
+            break;
+        case 3:
+            rgb->r = P;
+            rgb->g = Q;
+            rgb->b = v;
+            break;
+        case 4:
+            rgb->r = T;
+            rgb->g = P;
+            rgb->b = v;
+            break;
+        case 5:
+            rgb->r = v;
+            rgb->g = P;
+            rgb->b = Q;
+            break;
+        default:
+            return false;
     }
+
     return res;
 }
 
