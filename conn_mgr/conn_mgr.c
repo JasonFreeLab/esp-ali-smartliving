@@ -48,6 +48,7 @@ static const char *TAG = "conn_mgr";
 
 static system_event_cb_t hal_wifi_system_cb;
 
+//连接到WiFi
 static esp_err_t conn_mgr_wifi_connect(void)
 {
     wifi_config_t wifi_config = {0};
@@ -77,6 +78,7 @@ static esp_err_t conn_mgr_wifi_connect(void)
     return ESP_OK;
 }
 
+//保存SSID & PASSWORD 到 flash
 static esp_err_t conn_mgr_save_wifi_config(void)
 {
     wifi_config_t wifi_config = {0};
@@ -110,6 +112,7 @@ static esp_err_t conn_mgr_save_wifi_config(void)
     return ESP_OK;
 }
 
+//通过SNTP同步网络时间
 static esp_err_t conn_mgr_obtain_time(void)
 {
     static bool get_time_flag = false;
@@ -154,6 +157,7 @@ static esp_err_t conn_mgr_obtain_time(void)
     return ESP_OK;
 }
 
+//WiFi事件回调函数
 static esp_err_t conn_mgr_wifi_event_loop_handler(void *ctx, system_event_t *event)
 {
     system_event_info_t *info = &event->event_info;
@@ -186,11 +190,13 @@ static esp_err_t conn_mgr_wifi_event_loop_handler(void *ctx, system_event_t *eve
     return ESP_OK;
 }
 
+//WiFi事件句柄
 void conn_mgr_register_wifi_event(system_event_cb_t cb)
 {
     hal_wifi_system_cb = cb;
 }
 
+//清除WiFi配置
 esp_err_t conn_mgr_reset_wifi_config(void)
 {
     HAL_Kv_Del(STA_SSID_KEY);
@@ -199,6 +205,7 @@ esp_err_t conn_mgr_reset_wifi_config(void)
     return ESP_OK;
 }
 
+//检查是否已经完成配网
 static esp_err_t conn_mgr_is_configured(bool *configured)
 {
     if (!configured) {
@@ -220,6 +227,7 @@ static esp_err_t conn_mgr_is_configured(bool *configured)
     return ESP_OK;
 }
 
+//保存WiFi配置
 esp_err_t conn_mgr_set_wifi_config_ext(const uint8_t *ssid, size_t ssid_len, const uint8_t *password, size_t password_len)
 {
     wifi_config_t wifi_config = {0};
@@ -238,11 +246,13 @@ esp_err_t conn_mgr_set_wifi_config_ext(const uint8_t *ssid, size_t ssid_len, con
     return ESP_OK;
 }
 
+//获取WiFi配置
 esp_err_t conn_mgr_get_wifi_config(wifi_config_t *wifi_cfg)
 {
     return esp_wifi_get_config(ESP_IF_WIFI_STA, wifi_cfg);
 }
 
+//conn_mgr初始化
 esp_err_t conn_mgr_init(void)
 {
     extern esp_err_t HAL_Kv_Init(void);
@@ -260,13 +270,14 @@ esp_err_t conn_mgr_init(void)
     return ESP_OK;
 }
 
+//conn_mgr开始
 esp_err_t conn_mgr_start(void)
 {
     bool ret = true;
     bool configured = false;
     uint8_t mode = 0;
     int mode_len = sizeof(uint8_t);
-    conn_sc_mode_t awss_mode = CONN_SC_ZERO_MODE;
+    conn_sc_mode_t awss_mode = CONN_SOFTAP_MODE;
 
     // Let's find out if the device is configured.
     if (conn_mgr_is_configured(&configured) != ESP_OK) {
@@ -275,8 +286,8 @@ esp_err_t conn_mgr_start(void)
 
     // Get SC mode and decide to start which awss service
     HAL_Kv_Get(SC_MODE, &mode, &mode_len);
-    if (mode_len && mode == CONN_SOFTAP_MODE) {
-        awss_mode = CONN_SOFTAP_MODE;
+    if (mode_len && mode == CONN_SC_ZERO_MODE) {
+        awss_mode = CONN_SC_ZERO_MODE;
     }
 
     // If the device is not yet configured, start awss service.
@@ -291,8 +302,13 @@ esp_err_t conn_mgr_start(void)
                     ret = false;
                     break;
                 }
-            } else {
+            } else if (awss_mode == CONN_SC_ZERO_MODE) {
                 if (awss_start() != 0) {
+                    ret = false;
+                    break;
+                }
+            } else {
+                if (awss_dev_ap_start() != 0) {
                     ret = false;
                     break;
                 }
@@ -307,13 +323,14 @@ esp_err_t conn_mgr_start(void)
     return ret == true ? ESP_OK : ESP_FAIL;
 }
 
+//conn_mgr结束
 esp_err_t conn_mgr_stop(void)
 {
     bool ret = true;
     bool configured = false;
     uint8_t mode = 0;
     int mode_len = sizeof(uint8_t);
-    conn_sc_mode_t awss_mode = CONN_SC_ZERO_MODE;
+    conn_sc_mode_t awss_mode = CONN_SOFTAP_MODE;
 
     // Let's find out if the device is configured.
     if (conn_mgr_is_configured(&configured) != ESP_OK) {
@@ -322,13 +339,13 @@ esp_err_t conn_mgr_stop(void)
 
     // Get SC mode and decide to start which awss service
     HAL_Kv_Get(SC_MODE, &mode, &mode_len);
-    if (mode_len && mode == CONN_SOFTAP_MODE) {
-        awss_mode = CONN_SOFTAP_MODE;
+    if (mode_len && mode == CONN_SC_ZERO_MODE) {
+        awss_mode = CONN_SC_ZERO_MODE;
     }
 
     // If the device is not yet configured, stop awss service.
     if (!configured) {
-        if (awss_mode == CONN_SOFTAP_MODE) {
+        if (awss_mode == CONN_SC_ZERO_MODE) {
             if (awss_dev_ap_stop() != 0) {
                 ret = false;
             }
@@ -342,6 +359,7 @@ esp_err_t conn_mgr_stop(void)
     return ret == true ? ESP_OK : ESP_FAIL;
 }
 
+//设置AP模式的SSID
 esp_err_t conn_mgr_set_ap_ssid(uint8_t *ssid, int len)
 {
     int ret = ESP_FAIL;
@@ -365,6 +383,7 @@ esp_err_t conn_mgr_set_ap_ssid(uint8_t *ssid, int len)
     return ret;
 }
 
+//设置智能配网模式
 esp_err_t conn_mgr_set_sc_mode(uint8_t mode)
 {
     int ret = ESP_FAIL;
