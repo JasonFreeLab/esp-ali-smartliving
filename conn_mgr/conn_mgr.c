@@ -121,9 +121,11 @@ static esp_err_t conn_mgr_obtain_time(void)
     }
 
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    sntp_setservername(0, "ntp1.aliyun.com");
-    sntp_setservername(1, "cn.ntp.org.cn");
-    sntp_setservername(2, "cn.pool.ntp.org");
+    sntp_setservername(0, "ntp.aliyun.com");
+    sntp_setservername(1, "ntp.ntsc.ac.cn");
+    sntp_setservername(2, "cn.ntp.org.cn");
+    sntp_setservername(3, "cn.pool.ntp.org");
+    sntp_setservername(4, "ntp.tencent.com");
     sntp_init();
     // Set timezone to China Standard Time
     setenv("TZ", "CST-8", 1);
