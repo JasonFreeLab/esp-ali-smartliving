@@ -161,7 +161,7 @@ uintptr_t HAL_SSL_Establish(const char *host, uint16_t port, const char *ca_crt,
 #endif
 #endif
     // struct esp_tls *tls = esp_tls_conn_new(host, strlen(host), port, &cfg);
-    esp_tls_t *tls = esp_tls_init();
+    struct esp_tls_t *tls = esp_tls_init();
     esp_tls_conn_new_sync(host, strlen(host), port, &cfg, tls);
 
 #ifdef CONFIG_IDF_TARGET_ESP8266
