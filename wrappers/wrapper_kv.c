@@ -165,7 +165,7 @@ int HAL_Kv_Set(const char *key, const void *val, int len, int sync)
     }
     /*max key name is 15UL*/
     memcpy(key_name, key, sizeof(key_name) - 1);
-    ESP_LOGE(TAG, "Set %s blob value", key_name);
+    ESP_LOGI(TAG, "Set %s blob value", key_name);
     ret = nvs_set_blob(handle, key_name, val, len);
 
     if (ret != ESP_OK) {
