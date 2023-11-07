@@ -273,13 +273,12 @@ esp_err_t conn_mgr_init(void)
 }
 
 //conn_mgr开始
-esp_err_t conn_mgr_start(void)
+esp_err_t conn_mgr_start(conn_sc_mode_t awss_mode)
 {
     bool ret = true;
     bool configured = false;
-    uint8_t mode = 0;
+    uint8_t mode_kv = 0;
     int mode_len = sizeof(uint8_t);
-    conn_sc_mode_t awss_mode = CONN_SOFTAP_MODE;
 
     // Let's find out if the device is configured.
     if (conn_mgr_is_configured(&configured) != ESP_OK) {
@@ -287,9 +286,16 @@ esp_err_t conn_mgr_start(void)
     }
 
     // Get SC mode and decide to start which awss service
-    HAL_Kv_Get(SC_MODE, &mode, &mode_len);
-    if (mode_len && mode == CONN_SC_ZERO_MODE) {
+    HAL_Kv_Get(SC_MODE, &mode_kv, &mode_len);
+    if (mode_len && mode_kv == CONN_SOFTAP_MODE) {
+        awss_mode = CONN_SOFTAP_MODE;
+    }
+    else if (mode_len && mode_kv == CONN_SC_ZERO_MODE)
+    {
         awss_mode = CONN_SC_ZERO_MODE;
+    }
+    else {
+        conn_mgr_set_sc_mode(awss_mode);
     }
 
     // If the device is not yet configured, start awss service.
@@ -386,7 +392,7 @@ esp_err_t conn_mgr_set_ap_ssid(uint8_t *ssid, int len)
 }
 
 //设置智能配网模式
-esp_err_t conn_mgr_set_sc_mode(uint8_t mode)
+esp_err_t conn_mgr_set_sc_mode(conn_sc_mode_t mode)
 {
     int ret = ESP_FAIL;
     uint8_t mode_kv = 0;

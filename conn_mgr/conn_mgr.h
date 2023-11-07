@@ -101,11 +101,13 @@ esp_err_t conn_mgr_init(void);
  * If the device is configured, the device will connect to the router which is configured.
  * If the device is not configured, the device will start awss service.
  * 
+ * @param awss_mode awss mode
+ * 
  * @return
  *     - ESP_OK : OK
  *     - others : fail
  */
-esp_err_t conn_mgr_start(void);
+esp_err_t conn_mgr_start(conn_sc_mode_t awss_mode);
 
 /**
  * @brief stop the connection management module
@@ -142,7 +144,7 @@ esp_err_t conn_mgr_set_ap_ssid(uint8_t *ssid, int len);
  *     - ESP_OK : OK
  *     - others : fail
  */
-esp_err_t conn_mgr_set_sc_mode(uint8_t mode);
+esp_err_t conn_mgr_set_sc_mode(conn_sc_mode_t mode);
 #ifdef __cplusplus
 }
 #endif
