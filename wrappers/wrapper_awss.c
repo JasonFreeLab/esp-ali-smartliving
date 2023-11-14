@@ -1,24 +1,5 @@
 /*
- * ESPRESSIF MIT License
- *
- * Copyright (c) 2019 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
- *
- * Permission is hereby granted for use on all ESPRESSIF SYSTEMS products, in which case,
- * it is free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including
- * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
- * to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all copies or
- * substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * JasonFreeLab
  *
  */
 
@@ -39,7 +20,7 @@
 
 static awss_recv_80211_frame_cb_t s_sniffer_cb;
 
-static const char *TAG = "awss";
+static const char *TAG = "wrapper_awss";
 
 static void HAL_Awss_Monitor_callback(void *recv_buf, wifi_promiscuous_pkt_type_t type)
 {
@@ -133,14 +114,9 @@ void HAL_Awss_Close_Monitor(void)
 
 }
 
-int HAL_Awss_Connect_Ap(
-    _IN_ uint32_t connection_timeout_ms,
-    _IN_ char ssid[HAL_MAX_SSID_LEN],
-    _IN_ char passwd[HAL_MAX_PASSWD_LEN],
-    _IN_OPT_ enum AWSS_AUTH_TYPE auth,
-    _IN_OPT_ enum AWSS_ENC_TYPE encry,
-    _IN_OPT_ uint8_t bssid[ETH_ALEN],
-    _IN_OPT_ uint8_t channel)
+int HAL_Awss_Connect_Ap(_IN_ uint32_t connection_timeout_ms, _IN_ char *ssid,
+                        _IN_ char *passwd, _IN_OPT_ enum AWSS_AUTH_TYPE auth,
+                        _IN_OPT_ enum AWSS_ENC_TYPE encry, _IN_OPT_ uint8_t *bssid, _IN_OPT_ uint8_t channel)
 {
     uint32_t connect_ms = 0;
     wifi_config_t wifi_config = { 0 };
@@ -251,7 +227,7 @@ int HAL_Awss_Close_Ap(void)
     return SUCCESS_RETURN;
 }
 
-void HAL_Awss_Switch_Channel(char primary_channel, char secondary_channel, uint8_t bssid[ETH_ALEN])
+void HAL_Awss_Switch_Channel(char primary_channel, char secondary_channel, uint8_t *bssid)
 {
     if (esp_wifi_set_channel(primary_channel, secondary_channel) != ESP_OK) {
         ESP_LOGW(TAG, "HAL_Awss_Switch_Channel primary %d, second %d", primary_channel, secondary_channel);

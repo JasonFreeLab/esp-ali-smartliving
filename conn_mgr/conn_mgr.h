@@ -1,31 +1,13 @@
 /*
- * ESPRESSIF MIT License
- *
- * Copyright (c) 2019 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
- *
- * Permission is hereby granted for use on all ESPRESSIF SYSTEMS products, in which case,
- * it is free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including
- * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
- * to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all copies or
- * substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * JasonFreeLab
  *
  */
 
 #pragma once
 
 #include "esp_err.h"
-#include "esp_event_loop.h"
+#include "esp_event.h"
+#include "esp_wifi.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,7 +32,7 @@ typedef enum {
  *
  * @return none
  */
-void conn_mgr_register_wifi_event(system_event_cb_t cb);
+void conn_mgr_register_wifi_event(esp_event_handler_t cb);
 
 /**
  * @brief reset the stored router info, include ssid & password
@@ -85,6 +67,15 @@ esp_err_t conn_mgr_set_wifi_config_ext(const uint8_t *ssid, size_t ssid_len, con
  *     - others : fail
  */
 esp_err_t conn_mgr_get_wifi_config(wifi_config_t *wifi_cfg);
+
+/**
+ * @brief init the connection management kv module
+ * 
+ * @return
+ *     - ESP_OK : OK
+ *     - others : fail
+ */
+esp_err_t conn_mgr_Kv_init(void);
 
 /**
  * @brief init the connection management module

@@ -1,33 +1,16 @@
 /*
- * ESPRESSIF MIT License
- *
- * Copyright (c) 2019 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
- *
- * Permission is hereby granted for use on all ESPRESSIF SYSTEMS products, in which case,
- * it is free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including
- * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
- * to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all copies or
- * substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * JasonFreeLab
  *
  */
 
 #include "esp_log.h"
 #include "esp_ota_ops.h"
+
 #include "mbedtls/sha256.h"
 #include "mbedtls/md5.h"
 #include "mbedtls/bignum.h"
 #include "mbedtls/rsa.h"
+
 #include "iot_import.h"
 
 typedef struct {
@@ -38,7 +21,7 @@ typedef struct {
 
 static hal_ota_t *s_ota_handle;
 static uint8_t security_ota = 0;
-static const char *TAG = "ota";
+static const char *TAG = "wrapper_ota";
 
 void HAL_Firmware_Persistence_Start(void)
 {
@@ -61,7 +44,7 @@ void HAL_Firmware_Persistence_Start(void)
         }
 
         ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",
-                 update_partition->subtype, update_partition->address);
+                 update_partition->subtype, (unsigned int)update_partition->address);
 
         err = esp_ota_begin(update_partition, OTA_SIZE_UNKNOWN, &update_handle);
 
@@ -161,6 +144,7 @@ static int ota_rsa_pubkey_verify(const unsigned char *pubkey_n,
         goto EXIT;
     }
 
+#ifdef CONFIG_IDF_TARGET_ESP8266
     mbedtls_rsa_init(&ctx, MBEDTLS_RSA_PKCS_V15, MBEDTLS_MD_SHA256);
     ret = mbedtls_mpi_read_binary(&ctx.N, pubkey_n, pubkey_n_size);
     if (0 != ret) {
@@ -179,6 +163,28 @@ static int ota_rsa_pubkey_verify(const unsigned char *pubkey_n,
     if (0 != ret) {
         goto EXIT;
     }
+#else
+    mbedtls_rsa_init(&ctx);
+    mbedtls_rsa_set_padding(&ctx, MBEDTLS_RSA_PKCS_V15, MBEDTLS_MD_SHA256);
+
+    ret = mbedtls_mpi_read_binary(&ctx.MBEDTLS_PRIVATE(N), pubkey_n, pubkey_n_size);
+    if (0 != ret) {
+       goto EXIT;
+    }
+    ret = mbedtls_mpi_read_binary(&ctx.MBEDTLS_PRIVATE(E), pubkey_e, pubkey_e_size);
+    if (0 != ret) {
+        goto EXIT;
+    }
+    ctx.MBEDTLS_PRIVATE(len) = pubkey_n_size;
+    ret = mbedtls_rsa_check_pubkey(&ctx);
+    if (0 != ret) {
+        goto EXIT;
+    }
+    ret = mbedtls_rsa_pkcs1_verify(&ctx, MBEDTLS_MD_SHA256, (unsigned int)32, (const unsigned char *)dig, (const unsigned char *)sig);
+    if (0 != ret) {
+        goto EXIT;
+    }
+#endif
 EXIT:
     if(ret != 0) {
         ESP_LOGE(TAG, "rsa verify ret: 0x%x", ret);
@@ -316,16 +322,16 @@ static int ota_hash_create(const char *signMethod, const unsigned char *src, uns
     if (!strncmp(signMethod, "SHA256", strlen("SHA256"))) {
         mbedtls_sha256_context ctx;
         mbedtls_sha256_init(&ctx);
-        mbedtls_sha256_starts_ret(&ctx, 0);
-        mbedtls_sha256_update_ret(&ctx, src, 32);
-        mbedtls_sha256_finish_ret(&ctx, dst);
+        mbedtls_sha256_starts(&ctx, 0);
+        mbedtls_sha256_update(&ctx, src, 32);
+        mbedtls_sha256_finish(&ctx, dst);
         mbedtls_sha256_free( &ctx );
     } else if (!strncmp(signMethod, "Md5", strlen("Md5"))) {
         mbedtls_md5_context ctx;
         mbedtls_md5_init(&ctx);
-        mbedtls_md5_starts_ret(&ctx);
-        mbedtls_md5_update_ret(&ctx, src, 16);
-        mbedtls_md5_finish_ret(&ctx, dst);
+        mbedtls_md5_starts(&ctx);
+        mbedtls_md5_update(&ctx, src, 16);
+        mbedtls_md5_finish(&ctx, dst);
         mbedtls_md5_free( &ctx );
     } else {
         ESP_LOGE(TAG, "%s: Not SHA256 and Md5", __FUNCTION__);

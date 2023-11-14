@@ -1,24 +1,5 @@
 /*
- * ESPRESSIF MIT License
- *
- * Copyright (c) 2019 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
- *
- * Permission is hereby granted for use on all ESPRESSIF SYSTEMS products, in which case,
- * it is free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including
- * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
- * to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all copies or
- * substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * JasonFreeLab
  *
  */
 
@@ -34,9 +15,11 @@
 #include "freertos/event_groups.h"
 
 #include "esp_err.h"
-#include "esp_event_loop.h"
+#include "esp_event.h"
 #include "esp_log.h"
 #include "esp_wifi.h"
+#include "esp_system.h"
+#include "esp_netif.h"
 
 #include "lwip/apps/sntp.h"
 
@@ -46,7 +29,9 @@
 
 static const char *TAG = "conn_mgr";
 
-static system_event_cb_t hal_wifi_system_cb;
+static esp_event_handler_t hal_wifi_system_cb;
+static EventGroupHandle_t wifi_event_group;
+const int CONNECTED_BIT = BIT0;
 
 //连接到WiFi
 static esp_err_t conn_mgr_wifi_connect(void)
@@ -142,7 +127,7 @@ static esp_err_t conn_mgr_obtain_time(void)
         if (timeinfo.tm_year < (2019 - 1900)) {
             if (sntp_retry_cnt < CONFIG_SNTP_RETRY_MAX) {
                 ESP_LOGI(TAG, "SNTP get time failed (%d), retry after %d ms\n", sntp_retry_cnt, sntp_retry_time);
-                vTaskDelay(sntp_retry_time / portTICK_RATE_MS);
+                vTaskDelay(sntp_retry_time / portTICK_PERIOD_MS);
             } else {
                 ESP_LOGI(TAG, "SNTP get %d time failed, break\n", sntp_retry_cnt);
                 break;
@@ -159,41 +144,35 @@ static esp_err_t conn_mgr_obtain_time(void)
     return ESP_OK;
 }
 
-//WiFi事件回调函数
-static esp_err_t conn_mgr_wifi_event_loop_handler(void *ctx, system_event_t *event)
+// //WiFi事件回调函数
+static void event_handler(void* arg, esp_event_base_t event_base,
+                                int32_t event_id, void* event_data)
 {
-    system_event_info_t *info = &event->event_info;
-    switch (event->event_id) {
-        case SYSTEM_EVENT_STA_GOT_IP:
-            conn_mgr_save_wifi_config();
-            conn_mgr_obtain_time();
-            break;
-
-        case SYSTEM_EVENT_STA_DISCONNECTED:
-            ESP_LOGE(TAG, "Disconnect reason : %d", info->disconnected.reason);
+    if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        conn_mgr_save_wifi_config();
+        conn_mgr_obtain_time();
+        xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        wifi_event_sta_disconnected_t* disconnected = (wifi_event_sta_disconnected_t*) event_data;
+        ESP_LOGE(TAG, "Disconnect reason : %d", disconnected->reason);
 #ifdef CONFIG_IDF_TARGET_ESP8266
-            if (info->disconnected.reason == WIFI_REASON_BASIC_RATE_NOT_SUPPORT) {
-                /*Switch to 802.11 bgn mode */
-                esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N);
-            }
+        if (disconnected->reason == WIFI_REASON_BASIC_RATE_NOT_SUPPORT) {
+            /*Switch to 802.11 bgn mode */
+            esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCOL_11B | WIFI_PROTOCOL_11G | WIFI_PROTOCOL_11N);
+        }
 #endif
-            esp_wifi_connect();
-            break;
-
-        default:
-            break;
+        esp_wifi_connect();
+        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
     }
 
-    /** The application loop event handle */
+        /** The application loop event handle */
     if (hal_wifi_system_cb) {
-        hal_wifi_system_cb(ctx, event);
+        hal_wifi_system_cb(arg, event_base, event_id, event_data);
     }
-
-    return ESP_OK;
 }
 
 //WiFi事件句柄
-void conn_mgr_register_wifi_event(system_event_cb_t cb)
+void conn_mgr_register_wifi_event(esp_event_handler_t cb)
 {
     hal_wifi_system_cb = cb;
 }
@@ -257,17 +236,20 @@ esp_err_t conn_mgr_get_wifi_config(wifi_config_t *wifi_cfg)
 //conn_mgr初始化
 esp_err_t conn_mgr_init(void)
 {
-    extern esp_err_t HAL_Kv_Init(void);
-    HAL_Kv_Init();
-
-    tcpip_adapter_init();
-
+    ESP_ERROR_CHECK(esp_netif_init());
+    wifi_event_group = xEventGroupCreate();
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+#ifndef CONFIG_IDF_TARGET_ESP8266
+    esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
+    assert(sta_netif);
+#endif
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_event_loop_init(conn_mgr_wifi_event_loop_handler, NULL));
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_start());
+    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
+    ESP_ERROR_CHECK( esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &event_handler, NULL) );
+    ESP_ERROR_CHECK( esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL) );
+    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
+    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
+    ESP_ERROR_CHECK( esp_wifi_start() );
 
     return ESP_OK;
 }

@@ -1,24 +1,5 @@
 /*
- * ESPRESSIF MIT License
- *
- * Copyright (c) 2019 <ESPRESSIF SYSTEMS (SHANGHAI) PTE LTD>
- *
- * Permission is hereby granted for use on all ESPRESSIF SYSTEMS products, in which case,
- * it is free of charge, to any person obtaining a copy of this software and associated
- * documentation files (the "Software"), to deal in the Software without restriction, including
- * without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the Software is furnished
- * to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all copies or
- * substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
- * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
- * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * JasonFreeLab
  *
  */
 
@@ -29,9 +10,11 @@
 #include "esp_system.h"
 #include "esp_log.h"
 
+#include "lwip/sockets.h"
+
 #include "iot_import.h"
 
-static const char *TAG = "iot_import_tls";
+static const char *TAG = "wrapper_tls";
 
 /**
  * @brief Set malloc/free function.
@@ -134,18 +117,22 @@ static ssl_hooks_t g_ssl_hooks = { HAL_Malloc, HAL_Free};
 
 int32_t HAL_SSL_Destroy(uintptr_t handle)
 {
-    struct esp_tls *tls = (struct esp_tls *)handle;
+    struct esp_tls_t *tls = (struct esp_tls_t *)handle;
 
     if (!tls) {
         return ESP_FAIL;
     }
 
-    esp_tls_conn_delete(tls);
+    #ifdef CONFIG_IDF_TARGET_ESP8266
+    esp_tls_conn_delete((esp_tls_t *)tls);
+    #else
+    esp_tls_conn_destroy((esp_tls_t *)tls);
+    #endif
 
     return ESP_OK;
 }
 
-uintptr_t HAL_SSL_Establish(const char *host, uint16_t port, const char *ca_crt, uint32_t ca_crt_len)
+uintptr_t HAL_SSL_Establish(const char *host, uint16_t port, const char *ca_crt, size_t ca_crt_len)
 {
     esp_tls_cfg_t cfg = {
         .cacert_pem_buf  = (const unsigned char *)ca_crt,
@@ -160,9 +147,8 @@ uintptr_t HAL_SSL_Establish(const char *host, uint16_t port, const char *ca_crt,
     rtc_clk_cpu_freq_set(RTC_CPU_FREQ_160M);
 #endif
 #endif
-    // struct esp_tls *tls = esp_tls_conn_new(host, strlen(host), port, &cfg);
-    struct esp_tls_t *tls = esp_tls_init();
-    esp_tls_conn_new_sync(host, strlen(host), port, &cfg, tls);
+    struct esp_tls_t *tls = (struct esp_tls_t *)esp_tls_init();
+    esp_tls_conn_new_sync(host, strlen(host), port, &cfg, (esp_tls_t *)tls);
 
 #ifdef CONFIG_IDF_TARGET_ESP8266
 #if ESP_IDF_VERSION >= 0x30300
@@ -195,43 +181,54 @@ static void HAL_utils_ms_to_timeval(int timeout_ms, struct timeval *tv)
 
 static int ssl_poll_read(esp_tls_t *tls, int timeout_ms)
 {
-    int ret = -1;
+    esp_err_t ret;
+
     fd_set readset;
     fd_set errset;
+    
+    int sockfd = -1;
+    ret = esp_tls_get_conn_sockfd(tls, &sockfd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Error in obtaining the sockfd from tls context");
+        return ret;
+    }
+    
     FD_ZERO(&readset);
     FD_ZERO(&errset);
-    FD_SET(tls->sockfd, &readset);
-    FD_SET(tls->sockfd, &errset);
+    FD_SET(sockfd, &readset);
+    FD_SET(sockfd, &errset);
     struct timeval timeout;
     HAL_utils_ms_to_timeval(timeout_ms, &timeout);
-    ret = select(tls->sockfd + 1, &readset, NULL, &errset, &timeout);
-    if (ret > 0 && FD_ISSET(tls->sockfd, &errset)) {
+    ret = select(sockfd + 1, &readset, NULL, &errset, &timeout);
+    if (ret > 0 && FD_ISSET(sockfd, &errset)) {
         int sock_errno = 0;
         uint32_t optlen = sizeof(sock_errno);
-        getsockopt(tls->sockfd, SOL_SOCKET, SO_ERROR, &sock_errno, &optlen);
-        ESP_LOGE(TAG, "ssl_poll_read select error %d, errno = %s, fd = %d", sock_errno, strerror(sock_errno), tls->sockfd);
-        ret = -1;
+        getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &sock_errno, &optlen);
+        ESP_LOGE(TAG, "ssl_poll_read select error %d, errno = %s, fd = %d", sock_errno, strerror(sock_errno), sockfd);
+        ret = ESP_FAIL;
     }
+    
     return ret;
 }
 
-int HAL_SSL_Read(uintptr_t handle, char *buf, int len, int timeout_ms)
+int32_t HAL_SSL_Read(uintptr_t handle, char *buf, int len, int timeout_ms)
 {
-    int poll, ret;
-    struct esp_tls *tls = (struct esp_tls *)handle;
+    esp_err_t ret;
+    int poll_ret;
+    struct esp_tls_t *tls = (struct esp_tls_t *)handle;
 
     if (tls == NULL) {
         ESP_LOGE(TAG, "HAL_SSL_Read, handle == NULL");
         return NULL_VALUE_ERROR;
     }
 
-    if (esp_tls_get_bytes_avail(tls) <= 0) {
-        if ((poll = ssl_poll_read(tls, timeout_ms)) <= 0) {
-            return poll;
+    if (esp_tls_get_bytes_avail((esp_tls_t *)tls) <= 0) {
+        if ((poll_ret = ssl_poll_read((esp_tls_t *)tls, timeout_ms)) <= 0) {
+            return poll_ret;
         }
     }
 
-    ret = esp_tls_conn_read(tls, (void *)buf, len);
+    ret = esp_tls_conn_read((esp_tls_t *)tls, (void *)buf, len);
 
     if (ret < 0) {
         ESP_LOGE(TAG, "esp_tls_conn_read error, errno:%s", strerror(errno));
@@ -242,42 +239,54 @@ int HAL_SSL_Read(uintptr_t handle, char *buf, int len, int timeout_ms)
 
 static int ssl_poll_write(esp_tls_t *tls, int timeout_ms)
 {
-    int ret = -1;
+    esp_err_t ret;
+
     fd_set writeset;
     fd_set errset;
+
     FD_ZERO(&writeset);
     FD_ZERO(&errset);
-    FD_SET(tls->sockfd, &writeset);
-    FD_SET(tls->sockfd, &errset);
+
+    int sockfd = -1;
+    ret = esp_tls_get_conn_sockfd(tls, &sockfd);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Error in obtaining the sockfd from tls context");
+        return ret;
+    }
+
+    FD_SET(sockfd, &writeset);
+    FD_SET(sockfd, &errset);
     struct timeval timeout;
     HAL_utils_ms_to_timeval(timeout_ms, &timeout);
-    ret = select(tls->sockfd + 1, NULL, &writeset, &errset, &timeout);
-    if (ret > 0 && FD_ISSET(tls->sockfd, &errset)) {
+    ret = select(sockfd + 1, NULL, &writeset, &errset, &timeout);
+    if (ret > 0 && FD_ISSET(sockfd, &errset)) {
         int sock_errno = 0;
         uint32_t optlen = sizeof(sock_errno);
-        getsockopt(tls->sockfd, SOL_SOCKET, SO_ERROR, &sock_errno, &optlen);
-        ESP_LOGE(TAG, "ssl_poll_write select error %d, errno = %s, fd = %d", sock_errno, strerror(sock_errno), tls->sockfd);
-        ret = -1;
+        getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &sock_errno, &optlen);
+        ESP_LOGE(TAG, "ssl_poll_write select error %d, errno = %s, fd = %d", sock_errno, strerror(sock_errno), sockfd);
+        ret = ESP_FAIL;
     }
+
     return ret;
 }
 
-int HAL_SSL_Write(uintptr_t handle, const char *buf, int len, int timeout_ms)
+int32_t HAL_SSL_Write(uintptr_t handle, const char *buf, int len, int timeout_ms)
 {
-    int poll, ret;
-    struct esp_tls *tls = (struct esp_tls *)handle;
+    esp_err_t ret;
+    int poll_ret;
+    struct esp_tls_t *tls = (struct esp_tls_t *)handle;
 
     if (tls == NULL) {
         ESP_LOGE(TAG, "HAL_SSL_Write, handle == NULL");
         return NULL_VALUE_ERROR;
     }
 
-    if ((poll = ssl_poll_write(tls, timeout_ms)) <= 0) {
-        ESP_LOGE(TAG, "ssl_poll_write return %d, timeout is %d", poll, timeout_ms);
-        return poll;
+    if ((poll_ret = ssl_poll_write((esp_tls_t *)tls, timeout_ms)) <= 0) {
+        ESP_LOGE(TAG, "ssl_poll_write return %d, timeout is %d", poll_ret, timeout_ms);
+        return poll_ret;
     }
 
-    ret = esp_tls_conn_write(tls, (const void *) buf, len);
+    ret = esp_tls_conn_write((esp_tls_t *)tls, (const void *) buf, len);
 
     if (ret < 0) {
         ESP_LOGE(TAG, "esp_tls_conn_write error, errno=%s", strerror(errno));

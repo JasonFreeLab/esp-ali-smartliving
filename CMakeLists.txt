@@ -9,7 +9,13 @@ set(COMPONENT_ADD_INCLUDEDIRS
     ali-smartliving-device-sdk-c/output/release/include/exports)
 
 # Edit following two lines to set component requirements (see docs)
-set(COMPONENT_REQUIRES "nvs_flash" "app_update" "esp-tls")
+idf_build_get_property(target IDF_TARGET)
+if(${target} STREQUAL esp8266)
+set(COMPONENT_REQUIRES "nvs_flash" "app_update" "esp-tls" "esp_event" )
+else()
+set(COMPONENT_REQUIRES "nvs_flash" "app_update" "esp-tls" "esp_event" "esp_wifi" "esp_timer")
+endif()
+
 set(COMPONENT_PRIV_REQUIRES )
 
 set(COMPONENT_SRCDIRS
