@@ -55,7 +55,7 @@ static int HAL_GetProductParam(char *param_name, const char *param_name_str)
         }
 
         if (param_name == NULL) {
-            ESP_LOGE(TAG, "%s param %s NULL", __func__, param_name);
+            ESP_LOGE(TAG, "%s param is NULL", __func__);
             break;
         }
 
@@ -237,7 +237,7 @@ static int HAL_SetProductParam(char *param_name, const char *param_name_str)
     }
 
     if (param_name == NULL) {
-        ESP_LOGE(TAG, "%s param %s NULL", __func__, param_name);
+        ESP_LOGE(TAG, "%s param is NULL", __func__);
         return ESP_FAIL;
     }
 
