@@ -30,8 +30,6 @@
 static const char *TAG = "conn_mgr";
 
 static esp_event_handler_t hal_wifi_system_cb;
-static EventGroupHandle_t wifi_event_group;
-const int CONNECTED_BIT = BIT0;
 
 //连接到WiFi
 static esp_err_t conn_mgr_wifi_connect(void)
@@ -151,7 +149,6 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         conn_mgr_save_wifi_config();
         conn_mgr_obtain_time();
-        xEventGroupClearBits(wifi_event_group, CONNECTED_BIT);
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         wifi_event_sta_disconnected_t* disconnected = (wifi_event_sta_disconnected_t*) event_data;
         ESP_LOGE(TAG, "Disconnect reason : %d", disconnected->reason);
@@ -162,7 +159,6 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         }
 #endif
         esp_wifi_connect();
-        xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
     }
 
         /** The application loop event handle */
@@ -237,7 +233,6 @@ esp_err_t conn_mgr_get_wifi_config(wifi_config_t *wifi_cfg)
 esp_err_t conn_mgr_init(void)
 {
     ESP_ERROR_CHECK(esp_netif_init());
-    wifi_event_group = xEventGroupCreate();
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 #ifndef CONFIG_IDF_TARGET_ESP8266
     esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
