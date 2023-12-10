@@ -32,7 +32,7 @@ esp_err_t HAL_Kv_Init(void)
         if (s_kv_init_flag == false) {
             ret = nvs_flash_init_partition(NVS_PARTITION_NAME);
 
-            if (ret == ESP_ERR_NVS_NO_FREE_PAGES) {
+            if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
                 ESP_ERROR_CHECK(nvs_flash_erase_partition(NVS_PARTITION_NAME));
                 ret = nvs_flash_init_partition(NVS_PARTITION_NAME);
             } else if (ret != ESP_OK) {
@@ -150,7 +150,7 @@ int HAL_Kv_Set(const char *key, const void *val, int len, int sync)
     ret = nvs_set_blob(handle, key_name, val, len);
 
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "nvs erase key %s failed with %x", key_name, ret);
+        ESP_LOGE(TAG, "nvs set key %s failed with %x", key_name, ret);
     } else {
         nvs_commit(handle);
     }
