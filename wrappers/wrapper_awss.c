@@ -177,12 +177,25 @@ int HAL_Awss_Open_Ap(const char *ssid, const char *passwd, int beacon_interval, 
         ESP_LOGI(TAG, "ssid or passwd is NULL");
         return FAIL_RETURN;
     }
+#ifndef CONFIG_IDF_TARGET_ESP8266
+    static uint8_t cnt = 0;
+    if(cnt == 0) {
+        esp_netif_t *ap_netif = esp_netif_create_default_wifi_ap();
+        assert(ap_netif);
+    }
+    cnt++;
+#endif
 
     wifi_config_t wifi_config = {
         .ap = {
             .max_connection = 5,
             .beacon_interval = beacon_interval,
             .ssid_hidden = hide,
+#ifndef CONFIG_IDF_TARGET_ESP8266
+            .pmf_cfg = {
+                .required = true,
+            },
+#endif
         },
     };
 #ifdef CONFIG_HAL_USE_CUSTOMER_AP_SSID
@@ -207,7 +220,12 @@ int HAL_Awss_Open_Ap(const char *ssid, const char *passwd, int beacon_interval, 
         wifi_config.ap.authmode = WIFI_AUTH_OPEN;
     } else {
         strncpy((char *) wifi_config.ap.password, passwd, sizeof(wifi_config.ap.password));
+#ifdef CONFIG_ESP_WIFI_SOFTAP_SAE_SUPPORT
+        wifi_config.ap.authmode = WIFI_AUTH_WPA3_PSK;
+        wifi_config.ap.sae_pwe_h2e = WPA3_SAE_PWE_BOTH;
+#else /* CONFIG_ESP_WIFI_SOFTAP_SAE_SUPPORT */
         wifi_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
+#endif
     }
     ESP_LOGI(TAG, "ssid: %s", (char *) wifi_config.ap.ssid);
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
